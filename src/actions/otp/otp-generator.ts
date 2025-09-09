@@ -1,5 +1,5 @@
 'use server';
-import { generateOtpString, prisma, resolveOtpType } from "@/lib";
+import { generateOtpString, prisma, resolveOtpType, OTP_CONFIG } from "@/lib";
 import bcrypt from "bcrypt";
 
 
@@ -10,11 +10,11 @@ async function isOtpDuplicate(otp: string): Promise<boolean> {
     const recentOtps = await prisma.otp.findMany({
         where: {
             createdAt: {
-                gte: new Date(Date.now() - 24 * 60 * 60 * 1000) // Last 24 hours
+                gte: new Date(Date.now() - OTP_CONFIG.DUPLICATE_CHECK_HOURS * 60 * 60 * 1000)
             }
         },
         orderBy: { createdAt: 'desc' },
-        take: 100,
+        take: OTP_CONFIG.RECENT_OTPS_LIMIT,
         select: { value: true }
     });
 
@@ -51,12 +51,12 @@ async function storeOtp(
  */
 export async function generateOtp(
     type: OtpType = "numeric",
-    length: number = 6,
-    expiresAt: Date = new Date(Date.now() + 5 * 60 * 1000), // Default 5 minutes
+    length: number = OTP_CONFIG.DEFAULT_LENGTH,
+    expiresAt: Date = new Date(Date.now() + OTP_CONFIG.DEFAULT_EXPIRATION_MINUTES * 60 * 1000),
     externalClientId?: string
 ): Promise<OtpGenerationResult> {
-    if (length < 4) {
-        throw new Error("Length must be 4 or above.");
+    if (length < OTP_CONFIG.MIN_LENGTH) {
+        throw new Error(`Length must be ${OTP_CONFIG.MIN_LENGTH} or above.`);
     }
 
     const actualType = resolveOtpType(type);
@@ -68,8 +68,7 @@ export async function generateOtp(
     }
 
     // Hash the OTP for secure storage
-    const saltRounds = 12;
-    const hashedOtp = await bcrypt.hash(otp, saltRounds);
+    const hashedOtp = await bcrypt.hash(otp, OTP_CONFIG.SALT_ROUNDS);
 
     // Store in database
     const savedOtp = await storeOtp(actualType, hashedOtp, expiresAt, externalClientId);
@@ -99,7 +98,7 @@ export async function verifyAndClearOtp(
         const otpRecords = await prisma.otp.findMany({
             where: whereClause,
             orderBy: { createdAt: 'desc' },
-            take: 10 // Limit to recent OTPs for performance
+            take: OTP_CONFIG.VERIFICATION_OTPS_LIMIT
         });
 
         for (const record of otpRecords) {

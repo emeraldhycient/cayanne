@@ -1,4 +1,9 @@
 import { verifyAndClearOtp } from "@/actions/otp/otp-generator";
+import { 
+    OTP_CONFIG,
+    ERROR_MESSAGES,
+    SUCCESS_MESSAGES
+} from "@/lib";
 import { NextRequest, NextResponse } from "next/server";
 
 export async function POST(request: NextRequest) {
@@ -16,7 +21,7 @@ export async function POST(request: NextRequest) {
             return NextResponse.json(
                 { 
                     success: false, 
-                    error: "OTP is required and must be a non-empty string." 
+                    error: ERROR_MESSAGES.OTP_REQUIRED
                 },
                 { status: 400 }
             );
@@ -25,11 +30,11 @@ export async function POST(request: NextRequest) {
         // Sanitize OTP (remove whitespace)
         const sanitizedOtp = otp.trim();
 
-        if (sanitizedOtp.length < 4 || sanitizedOtp.length > 10) {
+        if (sanitizedOtp.length < OTP_CONFIG.MIN_LENGTH || sanitizedOtp.length > OTP_CONFIG.MAX_LENGTH) {
             return NextResponse.json(
                 { 
                     success: false, 
-                    error: "Invalid OTP format." 
+                    error: ERROR_MESSAGES.INVALID_OTP_FORMAT
                 },
                 { status: 400 }
             );
@@ -51,7 +56,7 @@ export async function POST(request: NextRequest) {
                     verified: true,
                     wasCleared: clearAfterVerification
                 },
-                message: "OTP verified successfully"
+                message: SUCCESS_MESSAGES.OTP_VERIFIED
             });
         } else if (verification.isExpired) {
             return NextResponse.json(
@@ -63,7 +68,7 @@ export async function POST(request: NextRequest) {
                         verified: false,
                         wasCleared: clearAfterVerification
                     },
-                    error: "OTP has expired"
+                    error: ERROR_MESSAGES.OTP_EXPIRED
                 },
                 { status: 400 }
             );
@@ -77,7 +82,7 @@ export async function POST(request: NextRequest) {
                         verified: false,
                         wasCleared: false
                     },
-                    error: "Invalid OTP"
+                    error: ERROR_MESSAGES.INVALID_OTP
                 },
                 { status: 400 }
             );
@@ -89,7 +94,7 @@ export async function POST(request: NextRequest) {
         return NextResponse.json(
             {
                 success: false,
-                error: "Failed to verify OTP. Please try again."
+                error: ERROR_MESSAGES.VERIFY_OTP_FAILED
             },
             { status: 500 }
         );
@@ -101,7 +106,7 @@ export async function GET() {
     return NextResponse.json(
         { 
             success: false, 
-            error: "Method not allowed. Use POST to verify OTP." 
+            error: ERROR_MESSAGES.METHOD_NOT_ALLOWED_VERIFY
         },
         { status: 405 }
     );
@@ -111,7 +116,7 @@ export async function PUT() {
     return NextResponse.json(
         { 
             success: false, 
-            error: "Method not allowed. Use POST to verify OTP." 
+            error: ERROR_MESSAGES.METHOD_NOT_ALLOWED_VERIFY
         },
         { status: 405 }
     );
@@ -121,7 +126,7 @@ export async function DELETE() {
     return NextResponse.json(
         { 
             success: false, 
-            error: "Method not allowed. Use POST to verify OTP." 
+            error: ERROR_MESSAGES.METHOD_NOT_ALLOWED_VERIFY
         },
         { status: 405 }
     );

@@ -1,83 +1,101 @@
 import { generateOtp } from "@/actions/otp/otp-generator";
+import { 
+    OTP_CONFIG, 
+    OTP_CHANNELS, 
+    VALID_OTP_TYPES, 
+    VALID_CHANNELS, 
+    VALIDATION_REGEX,
+    ERROR_MESSAGES,
+    SUCCESS_MESSAGES
+} from "@/lib";
 import { NextRequest, NextResponse } from "next/server";
 
 export async function POST(request: NextRequest) {
     try {
         const body: SendOtpRequest = await request.json();
-        
+
         const {
             type = "numeric",
-            length = 6,
+            length = OTP_CONFIG.DEFAULT_LENGTH,
             clientId,
-            expirationMinutes = 5,
-            channel = "sms",
+            expirationMinutes = OTP_CONFIG.DEFAULT_EXPIRATION_MINUTES,
+            channel = OTP_CHANNELS.SMS,
+            recipient
         } = body;
 
         // Validate required fields
-        if (!clientId || typeof clientId !== 'string' || clientId.trim().length === 0) {
+        if (!recipient || typeof recipient !== 'string' || recipient.trim().length === 0) {
             return NextResponse.json(
-                { 
-                    success: false, 
-                    error: "Recipient is required (email address, phone number, or WhatsApp number)." 
+                {
+                    success: false,
+                    error: ERROR_MESSAGES.RECIPIENT_REQUIRED
+                },
+                { status: 400 }
+            );
+        }
+
+        // Validate length
+        if (length < OTP_CONFIG.MIN_LENGTH || length > OTP_CONFIG.MAX_LENGTH) {
+            return NextResponse.json(
+                {
+                    success: false,
+                    error: ERROR_MESSAGES.INVALID_LENGTH
                 },
                 { status: 400 }
             );
         }
 
         // Validate expiration
-        if (expirationMinutes < 1 || expirationMinutes > 60) {
+        if (expirationMinutes < OTP_CONFIG.MIN_EXPIRATION_MINUTES || expirationMinutes > OTP_CONFIG.MAX_EXPIRATION_MINUTES) {
             return NextResponse.json(
-                { 
-                    success: false, 
-                    error: "Invalid expiration. Must be between 1 and 60 minutes." 
+                {
+                    success: false,
+                    error: ERROR_MESSAGES.INVALID_EXPIRATION
                 },
                 { status: 400 }
             );
         }
 
         // Validate OTP type
-        if (!["numeric", "alphanumeric", "hash", "random"].includes(type)) {
+        if (!VALID_OTP_TYPES.includes(type)) {
             return NextResponse.json(
-                { 
-                    success: false, 
-                    error: "Invalid OTP type. Must be numeric, alphanumeric, hash, or random." 
+                {
+                    success: false,
+                    error: ERROR_MESSAGES.INVALID_OTP_TYPE
                 },
                 { status: 400 }
             );
         }
 
         // Validate channel
-        if (!["email", "sms", "whatsapp"].includes(channel)) {
+        if (!VALID_CHANNELS.includes(channel)) {
             return NextResponse.json(
-                { 
-                    success: false, 
-                    error: "Invalid channel. Must be email, sms, or whatsapp." 
+                {
+                    success: false,
+                    error: ERROR_MESSAGES.INVALID_CHANNEL
                 },
                 { status: 400 }
             );
         }
 
         // Validate recipient format based on channel
-        const sanitizedRecipient = clientId.trim();
-        if (channel === "email") {
-            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-            if (!emailRegex.test(sanitizedRecipient)) {
+        const sanitizedRecipient = recipient.trim();
+        if (channel === OTP_CHANNELS.EMAIL) {
+            if (!VALIDATION_REGEX.EMAIL.test(sanitizedRecipient)) {
                 return NextResponse.json(
-                    { 
-                        success: false, 
-                        error: "Invalid email format for email channel." 
+                    {
+                        success: false,
+                        error: ERROR_MESSAGES.INVALID_EMAIL_FORMAT
                     },
                     { status: 400 }
                 );
             }
-        } else if (channel === "sms" || channel === "whatsapp") {
-            // Basic phone number validation (adjust regex as needed for your requirements)
-            const phoneRegex = /^\+?[1-9]\d{1,14}$/;
-            if (!phoneRegex.test(sanitizedRecipient.replace(/[\s\-\(\)]/g, ''))) {
+        } else if (channel === OTP_CHANNELS.SMS || channel === OTP_CHANNELS.WHATSAPP) {
+            if (!VALIDATION_REGEX.PHONE.test(sanitizedRecipient.replace(/[\s\-\(\)]/g, ''))) {
                 return NextResponse.json(
-                    { 
-                        success: false, 
-                        error: `Invalid phone number format for ${channel} channel.` 
+                    {
+                        success: false,
+                        error: ERROR_MESSAGES.INVALID_PHONE_FORMAT(channel)
                     },
                     { status: 400 }
                 );
@@ -93,17 +111,17 @@ export async function POST(request: NextRequest) {
         // Send OTP via specified channel
         try {
             switch (channel) {
-                case "email":
+                case OTP_CHANNELS.EMAIL:
                     // TODO: Implement email sending service
                     // await sendOtpViaEmail(result.otp, sanitizedRecipient);
                     console.log(`[EMAIL] Sending OTP ${result.otp} to ${sanitizedRecipient}`);
                     break;
-                case "sms":
+                case OTP_CHANNELS.SMS:
                     // TODO: Implement SMS sending service
                     // await sendOtpViaSms(result.otp, sanitizedRecipient);
                     console.log(`[SMS] Sending OTP ${result.otp} to ${sanitizedRecipient}`);
                     break;
-                case "whatsapp":
+                case OTP_CHANNELS.WHATSAPP:
                     // TODO: Implement WhatsApp sending service
                     // await sendOtpViaWhatsApp(result.otp, sanitizedRecipient);
                     console.log(`[WHATSAPP] Sending OTP ${result.otp} to ${sanitizedRecipient}`);
@@ -114,7 +132,7 @@ export async function POST(request: NextRequest) {
             return NextResponse.json(
                 {
                     success: false,
-                    error: `Failed to send OTP via ${channel}. Please try again.`
+                    error: ERROR_MESSAGES.SEND_OTP_FAILED(channel)
                 },
                 { status: 500 }
             );
@@ -131,16 +149,16 @@ export async function POST(request: NextRequest) {
                 recipient: sanitizedRecipient,
                 clientId: clientId || null
             },
-            message: `OTP sent successfully via ${channel}`
+            message: SUCCESS_MESSAGES.OTP_SENT(channel)
         });
 
     } catch (error) {
         console.error("Error generating OTP:", error);
-        
+
         return NextResponse.json(
             {
                 success: false,
-                error: "Failed to generate OTP. Please try again."
+                error: ERROR_MESSAGES.GENERATE_OTP_FAILED
             },
             { status: 500 }
         );
@@ -150,9 +168,9 @@ export async function POST(request: NextRequest) {
 // Handle unsupported methods
 export async function GET() {
     return NextResponse.json(
-        { 
-            success: false, 
-            error: "Method not allowed. Use POST to generate OTP." 
+        {
+            success: false,
+            error: ERROR_MESSAGES.METHOD_NOT_ALLOWED_GENERATE
         },
         { status: 405 }
     );
@@ -160,9 +178,9 @@ export async function GET() {
 
 export async function PUT() {
     return NextResponse.json(
-        { 
-            success: false, 
-            error: "Method not allowed. Use POST to generate OTP." 
+        {
+            success: false,
+            error: ERROR_MESSAGES.METHOD_NOT_ALLOWED_GENERATE
         },
         { status: 405 }
     );
@@ -170,9 +188,9 @@ export async function PUT() {
 
 export async function DELETE() {
     return NextResponse.json(
-        { 
-            success: false, 
-            error: "Method not allowed. Use POST to generate OTP." 
+        {
+            success: false,
+            error: ERROR_MESSAGES.METHOD_NOT_ALLOWED_GENERATE
         },
         { status: 405 }
     );

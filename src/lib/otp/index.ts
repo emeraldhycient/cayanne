@@ -1,4 +1,5 @@
 import crypto from "crypto";
+import { OTP_TYPES, GENERATION_TYPES, CHAR_SETS } from "../constants/otp";
 
 function generateNumericOtp(length: number): string {
     const max = Math.pow(10, length);
@@ -7,7 +8,7 @@ function generateNumericOtp(length: number): string {
 }
 
 function generateAlphanumericOtp(length: number): string {
-    const chars = "ABCDEFGHIJ0123456789896789KLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz012345ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz01234567ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789896789";
+    const chars = CHAR_SETS.ALPHANUMERIC;
     let result = "";
     for (let i = 0; i < length; i++) {
         const idx = crypto.randomInt(0, chars.length);
@@ -33,9 +34,8 @@ function generateRandomizedHashOtp(length: number): string {
  * Determines the actual OTP type when "random" is specified
  */
 function resolveOtpType(type: OtpType): Exclude<OtpType, "random"> {
-    if (type === "random") {
-        const types: Exclude<OtpType, "random">[] = ["numeric", "alphanumeric", "hash"];
-        return types[crypto.randomInt(0, types.length)];
+    if (type === OTP_TYPES.RANDOM) {
+        return GENERATION_TYPES[crypto.randomInt(0, GENERATION_TYPES.length)];
     }
     return type;
 }
@@ -45,11 +45,11 @@ function resolveOtpType(type: OtpType): Exclude<OtpType, "random"> {
  */
 function generateOtpString(type: Exclude<OtpType, "random">, length: number): string {
     switch (type) {
-        case "numeric":
+        case OTP_TYPES.NUMERIC:
             return generateNumericOtp(length);
-        case "alphanumeric":
+        case OTP_TYPES.ALPHANUMERIC:
             return generateAlphanumericOtp(length);
-        case "hash":
+        case OTP_TYPES.HASH:
             return generateRandomizedHashOtp(length);
         default:
             throw new Error(`Unknown OTP type: ${type}`);
