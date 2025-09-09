@@ -26,3 +26,159 @@ model Otp {
   // userId     String?
   // user       User?    @relation(fields: [userId], references: [id])
 }
+
+// Form Builder Models
+model Form {
+  id          String   @id @default(cuid())
+  title       String
+  description String?
+  slug        String   @unique
+  isActive    Boolean  @default(true)
+  isPublished Boolean @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // Form configuration
+  settings    Json?    // Stores form-level settings like styling, behavior, etc.
+  
+  // Relations
+  fields      FormField[]
+  submissions FormSubmission[]
+  
+  @@map("forms")
+}
+
+model FormField {
+  id          String   @id @default(cuid())
+  formId      String
+  type        String   // text, email, number, select, checkbox, radio, textarea, file, date, etc.
+  label       String
+  name        String   // Field name for form submission
+  placeholder String?
+  helpText    String?
+  isRequired  Boolean  @default(false)
+  order       Int      @default(0)
+  
+  // Field configuration and validation
+  config      Json?    // Stores field-specific config like options for select, validation rules, etc.
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // Relations
+  form        Form     @relation(fields: [formId], references: [id], onDelete: Cascade)
+  
+  @@map("form_fields")
+}
+
+// Marketing Contact List Models
+model ContactList {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // Relations
+  contacts    ContactListMember[]
+  campaigns   Campaign[]
+  
+  @@map("contact_lists")
+}
+
+model Contact {
+  id          String   @id @default(cuid())
+  email       String   @unique
+  firstName   String?
+  lastName    String?
+  phone       String?
+  company     String?
+  jobTitle    String?
+  
+  // Contact status
+  isActive    Boolean  @default(true)
+  isVerified  Boolean  @default(false)
+  
+  // Subscription preferences
+  preferences Json?    // Stores subscription preferences, communication settings, etc.
+  
+  // Metadata
+  source      String?  // Where the contact came from (form, import, api, etc.)
+  tags        String[] // Array of tags for categorization
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // Relations
+  listMemberships ContactListMember[]
+  formSubmissions FormSubmission[]
+  
+  @@map("contacts")
+}
+
+model ContactListMember {
+  id         String   @id @default(cuid())
+  contactId  String
+  listId     String
+  status     String   @default("subscribed") // subscribed, unsubscribed, bounced, etc.
+  joinedAt   DateTime @default(now())
+  
+  // Relations
+  contact    Contact     @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  list       ContactList @relation(fields: [listId], references: [id], onDelete: Cascade)
+  
+  @@unique([contactId, listId])
+  @@map("contact_list_members")
+}
+
+// Campaign model for marketing
+model Campaign {
+  id          String   @id @default(cuid())
+  name        String
+  subject     String?
+  content     String?
+  type        String   @default("email") // email, sms, etc.
+  status      String   @default("draft") // draft, scheduled, sent, cancelled
+  
+  scheduledAt DateTime?
+  sentAt      DateTime?
+  
+  // Campaign metrics
+  metrics     Json?    // Stores open rates, click rates, etc.
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // Relations
+  lists       ContactList[]
+  
+  @@map("campaigns")
+}
+
+// Dynamic Form Data Collection Models
+model FormSubmission {
+  id        String   @id @default(cuid())
+  formId    String
+  contactId String?  // Optional - links to contact if provided
+  
+  // Submission data
+  data      Json     // Stores all form field data as JSON
+  
+  // Metadata
+  ipAddress String?
+  userAgent String?
+  source    String?  // UTM source, referrer, etc.
+  
+  // Submission status
+  status    String   @default("completed") // completed, draft, spam, etc.
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  // Relations
+  form      Form     @relation(fields: [formId], references: [id], onDelete: Cascade)
+  contact   Contact? @relation(fields: [contactId], references: [id], onDelete: SetNull)
+  
+  @@map("form_submissions")
+}
