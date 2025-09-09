@@ -1,4 +1,5 @@
 type OtpType = "numeric" | "alphanumeric" | "hash" | "random";
+type OtpChannel = "email" | "sms" | "whatsapp";
 
 interface OtpGenerationResult {
     otp: string;
@@ -16,4 +17,19 @@ interface OtpVerificationResult {
         expiresAt: Date;
         clientId: string | null;
     };
+}
+
+interface SendOtpRequest {
+    type?: OtpType;
+    length?: number;
+    clientId?: string;
+    expirationMinutes?: number;
+    channel?: OtpChannel;
+    recipient: string; // Email address, phone number, or WhatsApp number
+}
+
+interface VerifyOtpRequest {
+    otp: string;
+    clientId?: string;
+    clearAfterVerification?: boolean;
 }
